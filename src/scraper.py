@@ -65,17 +65,23 @@ OUTPUT_COLUMNS = [
 ]
 
 PRICE_PATTERN = re.compile(r"\$\s*([\d,]{3,})")
-ROOM_PATTERN = re.compile(r"\b(Studio|\d+(?:\+\d+)?)\s*BD\b", re.IGNORECASE)
+ROOM_PATTERN = re.compile(
+    r"\b(Studio|\d+(?:\+\d+)?\s*BD)\b",
+    re.IGNORECASE,
+)
 BATH_PATTERN = re.compile(r"\b(\d+(?:\.\d+)?)\s*BA\b", re.IGNORECASE)
 PARKING_PATTERN = re.compile(
-    r"\b(\d+)\s*(?:Parking|Park|Prk)\b",
+    r"\b(\d+)\s*Parking\b",
     re.IGNORECASE,
 )
 SIZE_RANGE_PATTERN = re.compile(
-    r"\b(\d{2,4})\s*-\s*(\d{2,4})\s*sqft\b",
+    r"\b([\d,]{2,5})\s*-\s*([\d,]{2,5})\s*sqft\b",
     re.IGNORECASE,
 )
-SIZE_SINGLE_PATTERN = re.compile(r"\b(\d{2,4})\s*sqft\b", re.IGNORECASE)
+SIZE_SINGLE_PATTERN = re.compile(
+    r"\b([\d,]{2,5})\s*sqft\b",
+    re.IGNORECASE,
+)
 BUILDING_AGE_PATTERN = re.compile(
     r"\b(\d+)\s*years?\s*old\b",
     re.IGNORECASE,
@@ -155,16 +161,29 @@ def parse_size(text: str) -> tuple[int | None, int | None]:
 
     range_match = SIZE_RANGE_PATTERN.search(text)
     if range_match:
-        lower = int(range_match.group(1))
-        upper = int(range_match.group(2))
+        lower = int(range_match.group(1).replace(",", ""))
+        upper = int(range_match.group(2).replace(",", ""))
         return lower, upper
 
     single_match = SIZE_SINGLE_PATTERN.search(text)
     if single_match:
-        value = int(single_match.group(1))
+        value = int(single_match.group(1).replace(",", ""))
         return value, value
 
     return None, None
+
+
+def parse_room(text: str) -> str | None:
+    """Parse Studio or remove the rendered BD suffix from a room value."""
+
+    room_match = ROOM_PATTERN.search(text)
+    if not room_match:
+        return None
+
+    room = normalize_text(room_match.group(1))
+    if room.casefold() == "studio":
+        return "Studio"
+    return re.sub(r"\s*BD$", "", room, flags=re.IGNORECASE)
 
 
 def find_listing_card(address_element: Any, max_parent_levels: int = 8) -> Any | None:
@@ -232,7 +251,6 @@ def parse_listing(
     address = normalize_text(address_element.text)
 
     price_match = PRICE_PATTERN.search(raw_text)
-    room_match = ROOM_PATTERN.search(raw_text)
     bath_match = BATH_PATTERN.search(raw_text)
     parking_match = PARKING_PATTERN.search(raw_text)
     size_min, size_max = parse_size(raw_text)
@@ -242,7 +260,7 @@ def parse_listing(
         if price_match
         else None
     )
-    room = room_match.group(1) if room_match else None
+    room = parse_room(raw_text)
     bath = float(bath_match.group(1)) if bath_match else None
     parking = int(parking_match.group(1)) if parking_match else None
 
