@@ -75,11 +75,11 @@ PARKING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 SIZE_RANGE_PATTERN = re.compile(
-    r"\b([\d,]{2,5})\s*-\s*([\d,]{2,5})\s*sqft\b",
+    r"\b([\d,]{1,5})\s*-\s*([\d,]{1,5})\s*sqft\b",
     re.IGNORECASE,
 )
 SIZE_SINGLE_PATTERN = re.compile(
-    r"\b([\d,]{2,5})\s*sqft\b",
+    r"\b([\d,]{1,5})\s*sqft\b",
     re.IGNORECASE,
 )
 BUILDING_AGE_PATTERN = re.compile(
@@ -205,7 +205,12 @@ def find_listing_card(address_element: Any, max_parent_levels: int = 8) -> Any |
             or BATH_PATTERN.search(text) is not None
         )
 
-        if has_price and has_unit_info:
+        # A genuine result card contains one listing identifier. Requiring
+        # exactly one prevents comparison drawers or page-level containers
+        # containing many listings from being parsed as a single record.
+        has_single_listing = text.count("MLS#:") == 1
+
+        if has_price and has_unit_info and has_single_listing:
             return current
 
     return None
@@ -250,6 +255,11 @@ def parse_listing(
     raw_text = normalize_text(card.text)
     address = normalize_text(address_element.text)
 
+    # The address element must belong to the card that was selected. This
+    # rejects unrelated address elements rendered inside comparison widgets.
+    if not address or address.casefold() not in raw_text.casefold():
+        return None
+
     price_match = PRICE_PATTERN.search(raw_text)
     bath_match = BATH_PATTERN.search(raw_text)
     parking_match = PARKING_PATTERN.search(raw_text)
@@ -264,9 +274,15 @@ def parse_listing(
     bath = float(bath_match.group(1)) if bath_match else None
     parking = int(parking_match.group(1)) if parking_match else None
 
+    # A band such as 0-499 sqft is open-ended in practice. Preserve its stated
+    # bounds but do not report a misleading midpoint or square-metre estimate.
     size_mid = (
         (size_min + size_max) / 2
-        if size_min is not None and size_max is not None
+        if (
+            size_min is not None
+            and size_max is not None
+            and size_min > 0
+        )
         else None
     )
     size_sqm = round(size_mid * 0.092903, 2) if size_mid is not None else None
@@ -288,9 +304,11 @@ def parse_listing(
         # explicitly or a later detail-page enrichment step supplies them.
         "Neighbourhood": None,
         "Area": None,
-        "PropertyType": first_named_value(PROPERTY_TYPES, raw_text),
+        # Result-card text does not provide these categories consistently.
+        # Leave them missing until a detail-page enrichment step supplies them.
+        "PropertyType": None,
         "Furnished": parse_furnished(raw_text),
-        "OutdoorSpace": first_named_value(OUTDOOR_SPACE_TYPES, raw_text),
+        "OutdoorSpace": None,
         "AgeOfBuild": parse_building_age(raw_text),
         "RawText": raw_text,
     }
