@@ -20,5 +20,8 @@ __pycache__/
 data/raw/
 data/processed/
 
+# Generated analysis tables
+outputs/tables/
+
 # Editor settings
 .vscode/
