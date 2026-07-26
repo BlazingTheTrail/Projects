@@ -3,83 +3,183 @@
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![DrissionPage](https://img.shields.io/badge/DrissionPage-4.1.1.4-2E8B57)](https://www.drissionpage.cn/)
 [![Pandas](https://img.shields.io/badge/Pandas-3.0.5-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![Status](https://img.shields.io/badge/Status-Active-success)](#project-status)
+[![Tests](https://img.shields.io/badge/tests-18%20passing-brightgreen)](#testing)
+[![Status](https://img.shields.io/badge/status-active-success)](#project-status)
 
-An end-to-end data project that collects Toronto condo rental listings, converts
-semi-structured web content into analysis-ready records, and examines how asking
-rent varies by location, unit configuration, floor area, parking, and property
-characteristics.
+An end-to-end data project that collects rendered Toronto condo rental
+listings, converts semi-structured listing cards into validated records, and
+analyzes how asking rent varies with room configuration, parking, and
+approximate unit size.
 
-The project combines a historical Jupyter Notebook analysis with a modern,
-Chromium-based collection pipeline designed for rendered search-result pages.
+The project demonstrates browser-based data collection, defensive parsing,
+data-quality controls, automated testing, reproducible analysis, and
+portfolio-ready communication.
+
+> **Latest validated snapshot:** 10 search-result pages collected on
+> July 25, 2026, producing 492 unique listings and 490 analysis-ready records.
 
 ## Project Status
 
-| Component | Status |
+| Component | Current status |
 |---|---|
-| Historical exploratory analysis | Complete |
 | Chromium-based scraper | Implemented and validated |
-| One-page validation | 54 records, 0 parse errors |
-| Multi-page production collection | Ready for controlled testing |
-| Automated tests and dashboard | Planned |
+| Controlled collection test | 10 pages, 492 unique listings |
+| Cleaning and quality controls | Implemented |
+| Automated tests | 18 passing |
+| Reproducible analysis | Implemented |
+| Portfolio charts | 4 generated and versioned |
+| Executed analysis Notebook | Complete |
 
-> The historical findings below describe the saved Notebook dataset, not the
-> current Toronto rental market. Live listings and prices change continuously.
+## Key Results
+
+The latest analysis uses 490 whole-unit listings retained after deterministic
+scope and quality rules.
+
+| Metric | Result |
+|---|---:|
+| Analysis-ready listings | 490 |
+| Median asking rent | $2,550/month |
+| Mean asking rent | $2,803/month |
+| Middle 50% of asking rents | $2,250–$3,088/month |
+| Median approximate size | 649.5 sqft |
+| Median asking rent per sqft | $3.91 |
+| Listings with closed size ranges | 407 |
+| Open-ended size ranges | 83 |
+| IQR price flags retained for review | 22 |
+
+### Asking-rent distribution
+
+The distribution is right-skewed. A small number of high-price listings pull
+the mean above the median, so the median and interquartile range provide a
+better description of the typical listing in this snapshot.
+
+![Monthly asking-rent distribution](outputs/charts/rent_distribution.png)
+
+### Rent by room configuration
+
+Median asking rent increases across the well-represented room categories:
+
+| Room configuration | Listings | Median rent |
+|---|---:|---:|
+| Studio | 33 | $1,925 |
+| 1 bedroom | 146 | $2,288 |
+| 1 bedroom + den | 108 | $2,475 |
+| 2 bedrooms | 127 | $2,980 |
+| 2 bedrooms + den | 37 | $3,450 |
+| 3 bedrooms | 31 | $3,600 |
+
+![Median asking rent by room configuration](outputs/charts/median_rent_by_room.png)
+
+### Rent by reported parking
+
+Listings reporting one parking space had a median asking rent of $2,750,
+compared with $2,400 for listings reporting none. This is an unadjusted
+comparison rather than a causal estimate of the value of parking; size,
+location, room count, and building characteristics may also differ.
+
+![Median asking rent by parking availability](outputs/charts/median_rent_by_parking.png)
+
+### Rent and approximate unit size
+
+For listings with closed size ranges, the analysis uses the reported range
+midpoint as an approximation. After excluding IQR price flags from the
+correlation calculation, approximate size and asking rent have a Pearson
+correlation of 0.45.
+
+![Asking rent and approximate unit size](outputs/charts/rent_vs_size.png)
+
+For the full walkthrough, assumptions, tables, and interpretation, open the
+[executed analysis Notebook](notebooks/01_toronto_rental_analysis.ipynb).
 
 ## Project Objectives
 
 - Build a reproducible workflow for collecting Toronto condo rental listings.
 - Parse and standardize price, room, bathroom, parking, and floor-area fields.
-- Preserve raw collection snapshots for traceability and future comparison.
-- Compare rental supply and asking prices across Toronto market areas.
-- Identify relationships between asking rent and unit characteristics.
-- Present the work as a maintainable, portfolio-ready analytics project.
+- Preserve raw values and source text for traceability.
+- Reject contaminated page-level or comparison containers.
+- Separate data acquisition, cleaning, analysis, and presentation concerns.
+- Make quality decisions transparent instead of silently deleting anomalies.
+- Present the work as a maintainable data analytics portfolio project.
 
-## Data Acquisition Workflow
-
-### Current workflow
-
-The current scraper uses `DrissionPage` to open public search-result pages in a
-normal Chromium browser. This replaces the original static HTTP approach, which
-now receives a Cloudflare `403` response.
+## End-to-End Workflow
 
 ```mermaid
-flowchart TD
-    A[Rendered search page] --> B[Locate listing cards]
-    B --> C[Parse listing fields]
-    C --> D[Validate and deduplicate]
-    D --> E[Save page checkpoint]
-    E --> F[Timestamped raw CSV]
+flowchart LR
+    A[Rendered search pages] --> B[Browser-based scraper]
+    B --> C[Timestamped raw CSV]
+    C --> D[Schema and scope validation]
+    D --> E[Analysis-ready CSV]
+    E --> F[Summary tables and charts]
+    F --> G[Executed Notebook and README]
 ```
 
-For each requested page, the pipeline:
+### 1. Data collection
 
-1. Opens the Toronto rental search page in Chromium.
-2. Waits for rendered listing content.
-3. Identifies listing cards from their address elements.
-4. Extracts structured values from each card.
-5. Records parsing errors separately instead of silently discarding them.
-6. Deduplicates listings by source URL, with a field-based fallback.
-7. Replaces the checkpoint CSV after every successfully processed page.
-8. Saves a separate timestamped CSV when the run finishes.
+The original static HTTP approach now receives a Cloudflare `403` response.
+The current collector therefore uses `DrissionPage` to open rendered public
+search-result pages in a visible Chromium browser.
 
-The scraper does not attempt to bypass verification challenges. If the website
-presents one, collection should stop for review.
+For every requested page, the scraper:
 
-### Historical Notebook workflow
+1. Opens the Toronto rental result page in Chromium.
+2. Waits for listing cards to render.
+3. Locates individual cards from their address elements.
+4. Extracts price, room, bathroom, parking, and reported size.
+5. Requires exactly one MLS identifier for each accepted card.
+6. Verifies that the parsed address belongs to the same card text.
+7. Records rejected containers separately for review.
+8. Deduplicates accepted listings by source URL.
+9. Writes a checkpoint after each successfully processed page.
+10. Saves a timestamped raw CSV when collection finishes.
 
-The original Notebook used `Requests` and `Beautiful Soup` to:
+The scraper does not attempt to automate around verification challenges. If
+the source site presents one, collection stops for manual review.
 
-- scan search pages 1–76;
-- discover 3,280 property-detail links;
-- visit individual property pages with a request interval;
-- clean incomplete and duplicate observations; and
-- produce an exploratory dataset containing 2,782 listings.
+### 2. Cleaning and quality controls
 
-The saved Notebook outputs preserve this earlier market snapshot even though the
-legacy scraper is no longer reliable.
+`src/clean_data.py` validates the raw schema and creates explicit quality and
+analysis-scope fields.
 
-## Current Data Schema
+The cleaning stage:
+
+- standardizes strings, numeric values, and UTC timestamps;
+- removes exact and source-URL duplicates;
+- excludes room-only, shared-accommodation, lower-level, parking-only, and
+  locker-only records from the whole-unit analysis;
+- retains open-ended size bands without inventing a midpoint;
+- calculates approximate size and rent per sqft only for closed size ranges;
+- flags price outliers using the 1.5 × IQR rule; and
+- exports analysis-ready, excluded-record, and quality-summary files.
+
+### 3. Analysis and presentation
+
+`src/analyze.py` generates reusable summary tables and four publication-ready
+charts. The executed Notebook combines those results with interpretation,
+limitations, and next steps without duplicating the underlying pipeline logic.
+
+## Data Quality Results
+
+The controlled 10-page run produced 540 page appearances before URL
+deduplication.
+
+| Quality check | Result |
+|---|---:|
+| Unique accepted listings | 492 |
+| Rejected comparison container | 1 |
+| Exact duplicate rows after processing | 0 |
+| Duplicate source URLs after processing | 0 |
+| Accepted cards with multiple MLS identifiers | 0 |
+| Accepted addresses absent from card text | 0 |
+| Whole-unit scope exclusions | 2 |
+| Final analysis-ready rows | 490 |
+
+The two scope exclusions were retained in a separate audit file rather than
+discarded without explanation. Twenty-two high-price observations were also
+retained and flagged because unusual values are not automatically invalid.
+
+## Data Schema
+
+### Raw collection fields
 
 | Field | Description |
 |---|---|
@@ -90,113 +190,77 @@ legacy scraper is no longer reliable.
 | `PriceCAD` | Monthly asking rent in Canadian dollars |
 | `Room` | Bedroom/den configuration, including `Studio` |
 | `Bath` | Number of bathrooms |
-| `Parking` | Number of parking spaces |
-| `SizeMinSqft` | Lower bound of the reported floor-area range |
-| `SizeMaxSqft` | Upper bound of the reported floor-area range |
-| `SizeMidSqft` | Midpoint of the reported floor-area range |
-| `SizeSqm` | Midpoint converted to square metres |
-| `Neighbourhood` | Local neighbourhood, when available |
-| `Area` | Broader Toronto market area, when available |
-| `PropertyType` | Reported property category, when available |
-| `Furnished` | Furnishing status, when available |
-| `OutdoorSpace` | Reported outdoor-space category, when available |
-| `AgeOfBuild` | Reported building age, when available |
-| `RawText` | Original normalized card text for audit and reprocessing |
+| `Parking` | Number of reported parking spaces |
+| `SizeMinSqft` | Lower bound of the reported size range |
+| `SizeMaxSqft` | Upper bound of the reported size range |
+| `SizeMidSqft` | Midpoint for closed reported size ranges |
+| `SizeSqm` | Closed-range midpoint converted to square metres |
+| `Neighbourhood` | Neighbourhood when reliably available |
+| `Area` | Broader market area when reliably available |
+| `PropertyType` | Property category when reliably available |
+| `Furnished` | Furnishing status when reliably available |
+| `OutdoorSpace` | Outdoor-space category when reliably available |
+| `AgeOfBuild` | Building age when reliably available |
+| `RawText` | Normalized source card text for audit and reprocessing |
 
-## Analysis Results
+### Derived analysis fields
 
-### Current scraper validation
-
-The updated parser was tested against the first rendered search page:
-
-| Validation metric | Result |
-|---|---:|
-| Pages collected | 1 |
-| Records collected | 54 |
-| Parse errors | 0 |
-| Duplicate records after processing | 0 |
-
-The validation also confirmed corrections for:
-
-- `Studio` room labels;
-- parking values that were previously confused with street numbers; and
-- comma-formatted size ranges such as `1,000–1,199 sqft`.
-
-### Historical market snapshot
-
-After cleaning, the original Notebook analysis contains 2,782 rental listings
-across nine Toronto market areas.
-
-| Metric | Historical result |
-|---|---:|
-| Cleaned listings | 2,782 |
-| Mean asking rent | $3,124.51/month |
-| Median asking rent | $2,800/month |
-| Mean unit size | 79.86 m² |
-| Downtown listings | 1,506 |
-| Downtown share | 54.1% |
-| North York listings | 474 |
-
-#### Rent and listing volume by area
-
-| Area | Listings | Mean Rent | Median Rent |
-|---|---:|---:|---:|
-| Downtown | 1,506 | $3,230.87 | $2,800 |
-| North York | 474 | $2,986.58 | $2,900 |
-| Midtown / Central | 202 | $3,384.25 | $2,850 |
-| Etobicoke | 201 | $2,927.35 | $2,750 |
-| West End | 197 | $3,009.03 | $2,800 |
-| Scarborough | 127 | $2,653.65 | $2,700 |
-| East End | 50 | $2,863.90 | $2,675 |
-| East York | 14 | $2,730.00 | $2,597.50 |
-| York Crosstown | 11 | $2,531.45 | $2,600 |
-
-### Key observations from the historical analysis
-
-- Downtown accounts for slightly more than half of the cleaned listings, so
-  city-wide statistics are strongly influenced by the downtown market.
-- Midtown / Central has the highest mean rent among areas with at least 100
-  observations, followed by Downtown and West End.
-- Listings with parking show higher average asking rents in the sample, although
-  the relationship may also reflect unit size, location, and property type.
-- Recorded asking rents contain substantial outliers, including values from
-  $149 to $25,000 per month. These require validation before predictive work.
-- The original Notebook represented each size range using its upper bound. The
-  new scraper preserves both bounds and also calculates a midpoint.
-
-The Notebook includes rent distributions, area-level comparisons, room and
-parking comparisons, property-type summaries, price-versus-size plots, and
-pairwise numeric exploration.
+| Field | Description |
+|---|---|
+| `AnalysisEligible` | Whether the row passes quality and scope rules |
+| `ExclusionReason` | Transparent explanation for an excluded record |
+| `OpenEndedSizeRange` | Whether the reported range begins at zero |
+| `AnalysisSizeSqft` | Midpoint used only for closed size ranges |
+| `PricePerSqft` | Asking rent divided by approximate closed-range size |
+| `PriceOutlierIQR` | Price outside the 1.5 × IQR bounds |
+| `QualityFlags` | Combined record-level quality indicators |
 
 ## Technology Stack
 
 | Category | Tools |
 |---|---|
 | Language | Python 3.11 |
-| Current collection | DrissionPage, Chromium |
-| Historical collection | Requests, Beautiful Soup |
-| Data processing | Pandas |
-| Visualization | Matplotlib, Seaborn |
-| Analysis environment | Jupyter Notebook |
+| Browser-based collection | DrissionPage, Chromium |
+| Data processing | Pandas, NumPy |
+| Visualization | Matplotlib |
+| Analysis environment | Jupyter Notebook / VS Code |
+| Testing | Python `unittest` |
 | Version control | Git, GitHub |
 
-## Repository Structure
+## Project-Relevant Structure
 
 ```text
 Projects/
 ├── .gitignore
 ├── README.md
 ├── requirements.txt
+├── notebooks/
+│   └── 01_toronto_rental_analysis.ipynb
+├── outputs/
+│   └── charts/
+│       ├── median_rent_by_parking.png
+│       ├── median_rent_by_room.png
+│       ├── rent_distribution.png
+│       └── rent_vs_size.png
 ├── src/
+│   ├── __init__.py
+│   ├── analyze.py
+│   ├── clean_data.py
 │   └── scraper.py
-├── data/
-│   └── raw/                         # generated locally; ignored by Git
-├── WebScraping_Project_Condos_Final_ (2).ipynb
-└── Corporate_Credit_Rating_Forecast.ipynb
+├── tests/
+│   ├── __init__.py
+│   ├── test_analyze.py
+│   ├── test_clean_data.py
+│   └── test_scraper.py
+└── data/
+    ├── raw/                         # generated locally; ignored by Git
+    └── processed/                   # generated locally; ignored by Git
 ```
 
-The repository currently contains more than one portfolio project. Moving the
-condo analysis into a dedicated repository is included in the roadmap.
+Generated raw data, processed data, and summary CSV tables are intentionally
+excluded from version control. The executed Notebook and final PNG charts
+preserve the portfolio-facing results without publishing a changing scraped
+dataset.
 
 ## Running the Project
 
@@ -223,20 +287,30 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-### 3. Install the scraper dependencies
+### 3. Install dependencies
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 4. Run a one-page validation
+### 4. Run the automated tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The current suite contains 18 tests covering scraper parsing, multi-listing
+container rejection, size-band handling, cleaning rules, deduplication,
+analysis summaries, and category ordering.
+
+### 5. Run a one-page scraper validation
 
 ```bash
 python src/scraper.py --start-page 1 --end-page 1
 ```
 
-### 5. Run a controlled multi-page collection
+### 6. Run a controlled 10-page collection
 
 ```bash
 python src/scraper.py --start-page 1 --end-page 10
@@ -245,65 +319,128 @@ python src/scraper.py --start-page 1 --end-page 10
 Enable detailed logging when diagnosing a run:
 
 ```bash
-python src/scraper.py --start-page 1 --end-page 10 --verbose
+python src/scraper.py \
+  --start-page 1 \
+  --end-page 10 \
+  --verbose
 ```
 
-Generated files are written to `data/raw/`:
+Raw files are written to `data/raw/`:
 
 | Output | Purpose |
 |---|---|
 | `toronto_condos_checkpoint.csv` | Latest accumulated checkpoint |
-| `toronto_condos_parse_errors.csv` | Records that could not be parsed |
+| `toronto_condos_parse_errors.csv` | Rejected or unparseable containers |
 | `toronto_condos_YYYYMMDD_HHMMSS.csv` | Final timestamped snapshot |
 
-### Command-line options
+### 7. Clean a timestamped snapshot
+
+Replace the timestamp below with the file produced by the scraper:
+
+```bash
+python src/clean_data.py \
+  --input data/raw/toronto_condos_YYYYMMDD_HHMMSS.csv
+```
+
+Processed files are written to `data/processed/`:
+
+| Output suffix | Purpose |
+|---|---|
+| `_clean.csv` | Analysis-ready records |
+| `_excluded.csv` | Scope exclusions with reasons |
+| `_quality_summary.csv` | Reconciled quality counts |
+
+### 8. Generate tables and charts
+
+```bash
+python src/analyze.py \
+  --input data/processed/toronto_condos_YYYYMMDD_HHMMSS_clean.csv
+```
+
+Charts are saved to `outputs/charts/`. Reusable summary tables are saved to
+`outputs/tables/`, which is ignored by Git.
+
+### 9. Open the analysis Notebook
+
+The Notebook contains saved outputs and can be reviewed directly on GitHub.
+To run it locally using Jupyter:
+
+```bash
+python -m pip install jupyterlab
+jupyter lab notebooks/01_toronto_rental_analysis.ipynb
+```
+
+VS Code users can open the same file and select the project's `.venv` Python
+interpreter as the Notebook kernel.
+
+## Command-Line Options
+
+### Scraper
 
 | Option | Default | Description |
 |---|---:|---|
 | `--start-page` | `1` | First page to collect |
 | `--end-page` | `1` | Last page to collect, inclusive |
-| `--output-dir` | `data/raw` | CSV output directory |
+| `--output-dir` | `data/raw` | Raw CSV output directory |
 | `--timeout` | `20` | Seconds to wait for the first listing |
 | `--verbose` | off | Enable debug logging |
 
-### Open the historical Notebook
+### Cleaning
 
-Install the optional analysis packages:
+| Option | Default | Description |
+|---|---:|---|
+| `--input` | required | Timestamped raw scraper CSV |
+| `--output-dir` | `data/processed` | Processed CSV directory |
+| `--verbose` | off | Enable debug logging |
+
+### Analysis
+
+| Option | Default | Description |
+|---|---:|---|
+| `--input` | required | Analysis-ready `_clean.csv` |
+| `--output-dir` | `outputs` | Chart and summary-table directory |
+| `--verbose` | off | Enable debug logging |
+
+## Testing
+
+Run the complete suite from the repository root:
 
 ```bash
-python -m pip install jupyter matplotlib seaborn
-jupyter notebook "WebScraping_Project_Condos_Final_ (2).ipynb"
+python -m unittest discover -s tests -v
 ```
 
-The Notebook contains saved outputs and can be reviewed without rerunning its
-legacy web-scraping cells.
+The test suite is intentionally offline: it validates parsing and analytical
+logic without repeatedly requesting live listing pages.
 
-## Data Quality and Limitations
+## Limitations
 
-- Search listings are dynamic and may change between collection runs.
-- Search results may not represent the entire Toronto rental market.
-- Some descriptive fields are not displayed on every result card.
-- Asking rent does not necessarily equal the final contracted rent.
-- Listing text and page structure can change without notice.
-- Historical results are descriptive and do not establish causality.
-- Outliers and implausible values require business-rule validation.
-- A single-page scraper test confirms parsing behavior but not long-run
-  stability across all available pages.
+- The reported results describe a 10-page, single-time snapshot rather than a
+  complete census of Toronto rentals.
+- Values are asking rents, not final contracted lease prices.
+- Search listings can change, expire, or be reposted after collection.
+- Size is reported as a range rather than an exact measurement.
+- Open-ended size ranges are retained but omitted from size-based metrics.
+- Neighbourhood and building details are not reliably displayed on every
+  search-result card.
+- Room, parking, and size comparisons are descriptive and do not establish
+  causality.
+- Website structure changes can require parser maintenance.
 
 ## Roadmap
 
-- [x] Preserve the original Notebook and historical outputs.
-- [x] Replace the blocked static scraper with a Chromium-based pipeline.
-- [x] Add logging, deduplication, checkpoints, and parsing-error output.
-- [x] Add `.gitignore` and a reproducible `requirements.txt`.
-- [x] Validate price, room, bathroom, parking, and size parsing on page 1.
-- [ ] Run and audit a controlled 10-page collection.
-- [ ] Add automated parser tests and sample HTML fixtures.
-- [ ] Build a cleaning and validation module for the current schema.
-- [ ] Export publication-ready charts to `outputs/charts/`.
-- [ ] Add rent-per-square-foot and neighbourhood-level analysis.
-- [ ] Compare timestamped snapshots to measure rental-market changes.
-- [ ] Build an interactive dashboard in Power BI, Tableau, or Streamlit.
+- [x] Replace the blocked static collector with a Chromium-based pipeline.
+- [x] Add logging, deduplication, checkpoints, and rejected-record output.
+- [x] Audit a controlled 10-page collection.
+- [x] Add schema validation, scope rules, and quality flags.
+- [x] Add automated scraper, cleaning, and analysis tests.
+- [x] Generate publication-ready charts.
+- [x] Add rent-per-square-foot and size analysis.
+- [x] Publish an executed portfolio analysis Notebook.
+- [ ] Add reliably sourced neighbourhood and building features.
+- [ ] Compare timestamped snapshots to measure market changes.
+- [ ] Fit and evaluate an interpretable multivariate rent model.
+- [ ] Add continuous integration for the test suite.
+- [ ] Build an interactive Power BI, Tableau, or Streamlit dashboard.
 - [ ] Move the project into a dedicated repository.
 
 ## Responsible Use
